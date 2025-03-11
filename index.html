@@ -24,6 +24,7 @@
         }
 
         #controls {
+            text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
@@ -42,8 +43,11 @@
             border: none;
             border-radius: 5px;
             color: white;
-            font-size: 14px;
+            font-size: large;
             cursor: pointer;
+            margin: 5px;
+            min-width: 50px;
+            min-height: 50px;
         }
 
         #controls button:hover {
@@ -58,6 +62,7 @@
             display: flex;
             flex-direction: column;
             margin-top: 20px;
+            justify-content: space-around;
         }
 
         #speedDisplay {
@@ -84,7 +89,14 @@
 
         .row {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
+        }
+
+        .view-btn {
+            width: 50px;
+            height: 50px;
+            font-size: x-large !important;
+            margin: 15px !important;
         }
     </style>
 </head>
@@ -93,28 +105,40 @@
     <div class="container">
         <div id="controls">
             <div>
-                <h3>Simulation</h3>
-                <button id="speedUp">+</button>
-                <button id="slowDown">-</button>
-                <br>
-                <button id="pause">Pause</button>
-                <br>
-                <button id="regenerate">Régénérer</button>
-                <button id="chaos">Mode Chaos</button>
-                <br>
-                <button id="editMode">Mode Édition</button>
-                <button id="clearGrid">Vider la grille</button>
-                <div id="speedDisplay">Vitesse: 10</div>
+                <div class="row">
+                    <h1>Simulation</h1>
+                </div>
+                <div id="speedDisplay" style="font-size: xx-large;">Vitesse: 10</div>
+                <div class="row">
+                    <h3>Temp</h3>
+                </div>
+                <div class="row">
+                    <button id="speedUp">+</button>
+                    <button id="slowDown">-</button>
+                    <button id="pause">Pause</button>
+                </div>
+                <div class="row">
+                    <h3>Actions</h3>
+                </div>
+                <div class="row">
+                    <button id="regenerate">Régénérer</button>
+                    <button id="chaos">Mode Chaos</button>
+                </div>
+                <div class="row">
+                    <button id="editMode">Mode Édition</button>
+                    <button id="clearGrid">Vider la grille</button>
+                </div>
             </div>
-
             <div id="gameControls">
                 <h3>Vue</h3>
-                <button id="moveUp">↑</button>
                 <div class="row">
-                    <button id="moveLeft">←</button>
-                    <button id="moveRight">→</button>
+                    <button class="view-btn" id="moveUp">↑</button>
                 </div>
-                <button id="moveDown">↓</button>
+                <div class="row">
+                    <button class="view-btn" id="moveLeft">←</button>
+                    <button class="view-btn" id="moveDown">↓</button>
+                    <button class="view-btn" id="moveRight">→</button>
+                </div>
             </div>
         </div>
 
@@ -263,21 +287,24 @@
             offsetY += offsetYChange;
             render();
         }
-
-
+        let isDrawing = false;  // Détecter si on est en train de dessiner (clic maintenu)
         // Initialiser les événements
         function init() {
+            const DRAW_DELAY = 50; // Délai en millisecondes entre chaque ajout de cellule (ajustez pour la fluidité)
+            let lastDrawTime = 0;  // Temps du dernier dessin (pour éviter les ajouts trop fréquents)
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
 
             document.getElementById('speedUp').addEventListener('click', () => updateSpeed(speed + 1));
             document.getElementById('slowDown').addEventListener('click', () => updateSpeed(speed - 1));
             document.getElementById('pause').addEventListener('click', () => {
-                running = !running;
+                running = !running;  // Changer l'état du jeu entre pause et lecture
                 if (running) {
-                    startGame();  // Redémarrer la boucle si le jeu est mis en marche
+                    startGame();  // Si le jeu reprend, démarrer la simulation
+                    document.getElementById('pause').textContent = "Pause";  // Changer le texte en "Pause"
                 } else {
-                    clearInterval(timer);  // Arrêter la boucle si le jeu est en pause
+                    clearInterval(timer);  // Si le jeu est mis en pause, arrêter la simulation
+                    document.getElementById('pause').textContent = "Play";  // Changer le texte en "Play"
                 }
             });
 
@@ -308,25 +335,56 @@
             });
 
             document.getElementById('moveUp').addEventListener('mousedown', () => {
-                moveInterval = setInterval(() => move(0, -10), 100);
+                if (speed > 15 && speed < 20) {
+                    moveInterval = setInterval(() => move(0, -20), 100);
+                } else {
+                    moveInterval = setInterval(() => move(0, -10), 100);
+                }
             });
             document.getElementById('moveDown').addEventListener('mousedown', () => {
-                moveInterval = setInterval(() => move(0, 10), 100);
+                if (speed > 15 && speed < 20) {
+                    moveInterval = setInterval(() => move(0, 20), 100);
+                } else {
+                    moveInterval = setInterval(() => move(0, 10), 100);
+                }
             });
             document.getElementById('moveLeft').addEventListener('mousedown', () => {
-                moveInterval = setInterval(() => move(-10, 0), 100);
+                if (speed > 15 && speed < 20) {
+                    moveInterval = setInterval(() => move(-20, 0), 100);
+                } else {
+                    moveInterval = setInterval(() => move(-10, 0), 100);
+                }
             });
             document.getElementById('moveRight').addEventListener('mousedown', () => {
-                moveInterval = setInterval(() => move(10, 0), 100);
+                if (speed > 15 && speed < 20) {
+                    moveInterval = setInterval(() => move(20, 0), 100);
+                } else {
+                    moveInterval = setInterval(() => move(10, 0), 100);
+                }
             });
 
             document.addEventListener('mouseup', () => {
                 clearInterval(moveInterval);
+                isDrawing = false;  // On arrête de dessiner dès qu'on lâche le clic
+            });
+            canvas.addEventListener('mouseup', () => {
+                if (!running) {
+                    isDrawing = false;  // On arrête de dessiner dès qu'on lâche le clic
+                }
             });
 
-            canvas.addEventListener('click', e => {
-                if (editingMode) {
-                    toggleCell(e.offsetX, e.offsetY);
+            // Événement pour commencer à dessiner lorsque le clic gauche est maintenu
+            canvas.addEventListener('mousedown', (e) => {
+                if (!running && editingMode) {  // Si le jeu est en pause et en mode édition
+                    isDrawing = true;  // Démarre le dessin
+                    toggleCell(e.offsetX, e.offsetY);  // Ajouter une cellule immédiatement
+                }
+            });
+
+            // Événement pour dessiner tant que le clic gauche est maintenu
+            canvas.addEventListener('mousemove', (e) => {
+                if (!running && editingMode && isDrawing) {  // On dessine seulement si le jeu est en pause et que le clic est maintenu
+                    toggleCell(e.offsetX, e.offsetY);  // Ajouter ou supprimer une cellule
                 }
             });
 
@@ -349,6 +407,19 @@
             document.getElementById('speedDisplay').textContent = `Vitesse: ${speed}`;
             clearInterval(timer);  // Arrêter le timer actuel
             startGame();  // Relancer le jeu avec la nouvelle vitesse
+        }
+        function toggleCell(x, y) {
+            const gridX = Math.floor(x / CELL_SIZE);
+            const gridY = Math.floor(y / CELL_SIZE);
+            const cell = `${gridX},${gridY}`;
+
+            if (liveCells.has(cell)) {
+                liveCells.delete(cell);  // Si la cellule est déjà vivante, on la tue
+            } else {
+                liveCells.add(cell);  // Sinon, on l'ajoute
+            }
+
+            render();  // Redessiner la grille
         }
 
         init();
