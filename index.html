@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de la Vie - Infinite</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+            background-color: #000000;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            height: 100%;
+        }
+
+        #controls {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            width: 600px;
+            padding: 20px;
+            background-color: #2b2b2b;
+            color: white;
+            border-radius: 10px;
+            margin-right: 20px;
+        }
+
+        #controls button {
+            margin: 5px 0;
+            padding: 10px;
+            background-color: #5c5c5c;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        #controls button:hover {
+            background-color: #3c3c3c;
+        }
+
+        #controls button:active {
+            background-color: #2c2c2c;
+        }
+
+        #gameControls {
+            display: flex;
+            flex-direction: column;
+            margin-top: 20px;
+        }
+
+        #speedDisplay {
+            margin-top: 10px;
+            font-size: 16px;
+        }
+
+        canvas {
+            border: 2px solid #000;
+            background-color: #f8f8f8;
+            cursor: default;
+            flex-grow: 1;
+        }
+
+        #moveControls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #moveControls button {
+            width: 60px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div id="controls">
+            <div>
+                <h3>Simulation</h3>
+                <button id="speedUp">+</button>
+                <button id="slowDown">-</button>
+                <br>
+                <button id="pause">Pause</button>
+                <br>
+                <button id="regenerate">Régénérer</button>
+                <button id="chaos">Mode Chaos</button>
+                <br>
+                <button id="editMode">Mode Édition</button>
+                <button id="clearGrid">Vider la grille</button>
+                <div id="speedDisplay">Vitesse: 10</div>
+            </div>
+
+            <div id="gameControls">
+                <h3>Vue</h3>
+                <button id="moveUp">↑</button>
+                <div class="row">
+                    <button id="moveLeft">←</button>
+                    <button id="moveRight">→</button>
+                </div>
+                <button id="moveDown">↓</button>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const CELL_SIZE = 10;
+        const GRID_WIDTH = 100;
+        const GRID_HEIGHT = 100;
+        const INITIAL_PATTERN_SIZE = 60;
+
+        let liveCells = new Set();
+        let offsetX = 0, offsetY = 0;
+        let running = true;
+        let speed = 10;
+        let timer;
+        let canvasWidth, canvasHeight;
+        let editingMode = false;
+
+        // Initialisation du canvas
+        function resizeCanvas() {
+            canvasWidth = window.innerWidth * 0.75 - 50;
+            canvasHeight = window.innerHeight - 50;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            render();
+        }
+
+        // Dessiner la grille
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#ccc';
+
+            // Draw grid lines based on the canvas size
+            for (let x = offsetX % CELL_SIZE; x < canvas.width; x += CELL_SIZE) {
+                for (let y = offsetY % CELL_SIZE; y < canvas.height; y += CELL_SIZE) {
+                    ctx.strokeRect(x, y, CELL_SIZE, CELL_SIZE);
+                }
+            }
+        }
+
+        // Générer un pattern aléatoire au centre
+        function generateRandomPattern() {
+            const rand = Math.random;
+            liveCells.clear();
+            let validPattern = false;
+
+            const startX = Math.floor(GRID_WIDTH / 2) - Math.floor(INITIAL_PATTERN_SIZE / 2);
+            const startY = Math.floor(GRID_HEIGHT / 2) - Math.floor(INITIAL_PATTERN_SIZE / 2);
+
+            while (!validPattern) {
+                for (let i = 0; i < INITIAL_PATTERN_SIZE; i++) {
+                    for (let j = 0; j < INITIAL_PATTERN_SIZE; j++) {
+                        if (rand() > 0.5) {
+                            liveCells.add(`${startX + i},${startY + j}`);
+                        }
+                    }
+                }
+
+                validPattern = checkPatternValidity();
+            }
+
+            render();
+        }
+
+        // Vérifier si le pattern généré contient des cellules valides
+        function checkPatternValidity() {
+            const newLiveCells = new Set();
+
+            liveCells.forEach(cell => {
+                const [x, y] = cell.split(',').map(Number);
+                const neighbors = countNeighbors(x, y);
+                if (neighbors === 2 || neighbors === 3) {
+                    newLiveCells.add(cell);
+                }
+            });
+
+            return newLiveCells.size > 0;
+        }
+
+        // Calculer les voisins d'une cellule
+        function countNeighbors(x, y) {
+            let count = 0;
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    if (i === 0 && j === 0) continue;
+                    const neighbor = `${x + i},${y + j}`;
+                    if (liveCells.has(neighbor)) {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        // Passer à la génération suivante
+        function nextGeneration() {
+            const newLiveCells = new Set();
+            const cellsToCheck = new Set();
+
+            // Ajouter toutes les cellules autour des cellules vivantes pour vérifier leurs voisins
+            liveCells.forEach(cell => {
+                const [x, y] = cell.split(',').map(Number);
+                for (let i = -1; i <= 1; i++) {
+                    for (let j = -1; j <= 1; j++) {
+                        cellsToCheck.add(`${x + i},${y + j}`);
+                    }
+                }
+            });
+
+            cellsToCheck.forEach(cell => {
+                const [x, y] = cell.split(',').map(Number);
+                const neighbors = countNeighbors(x, y);
+                if (liveCells.has(cell)) {
+                    if (neighbors === 2 || neighbors === 3) {
+                        newLiveCells.add(cell);
+                    }
+                } else if (neighbors === 3) {
+                    newLiveCells.add(cell);
+                }
+            });
+
+            liveCells = newLiveCells;
+            render();
+        }
+
+        // Rendu des cellules vivantes
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+            liveCells.forEach(cell => {
+                const [x, y] = cell.split(',').map(Number);
+                ctx.fillStyle = 'black';
+                ctx.fillRect(x * CELL_SIZE - offsetX, y * CELL_SIZE - offsetY, CELL_SIZE, CELL_SIZE);
+            });
+        }
+
+        // Déplacer la grille
+        let moveInterval;
+        function move(offsetXChange, offsetYChange) {
+            offsetX += offsetXChange;
+            offsetY += offsetYChange;
+            render();
+        }
+
+
+        // Initialiser les événements
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            document.getElementById('speedUp').addEventListener('click', () => updateSpeed(speed + 1));
+            document.getElementById('slowDown').addEventListener('click', () => updateSpeed(speed - 1));
+            document.getElementById('pause').addEventListener('click', () => {
+                running = !running;
+                if (running) {
+                    startGame();  // Redémarrer la boucle si le jeu est mis en marche
+                } else {
+                    clearInterval(timer);  // Arrêter la boucle si le jeu est en pause
+                }
+            });
+
+            document.getElementById('regenerate').addEventListener('click', generateRandomPattern);
+            document.getElementById('chaos').addEventListener('click', () => {
+                liveCells.clear();
+                for (let i = 0; i < 300; i++) {
+                    const x = Math.floor(Math.random() * 100) - 50;
+                    const y = Math.floor(Math.random() * 100) - 50;
+                    liveCells.add(`${x},${y}`);
+                }
+                render();
+            });
+
+            document.getElementById('editMode').addEventListener('click', () => {
+                editingMode = !editingMode;
+                document.getElementById('editMode').textContent = editingMode ? 'Mode Édition (Activé)' : 'Mode Édition';
+                if (editingMode) {
+                    canvas.style.cursor = 'crosshair';
+                } else {
+                    canvas.style.cursor = 'default';
+                }
+            });
+
+            document.getElementById('clearGrid').addEventListener('click', () => {
+                liveCells.clear();
+                render();
+            });
+
+            document.getElementById('moveUp').addEventListener('mousedown', () => {
+                moveInterval = setInterval(() => move(0, -10), 100);
+            });
+            document.getElementById('moveDown').addEventListener('mousedown', () => {
+                moveInterval = setInterval(() => move(0, 10), 100);
+            });
+            document.getElementById('moveLeft').addEventListener('mousedown', () => {
+                moveInterval = setInterval(() => move(-10, 0), 100);
+            });
+            document.getElementById('moveRight').addEventListener('mousedown', () => {
+                moveInterval = setInterval(() => move(10, 0), 100);
+            });
+
+            document.addEventListener('mouseup', () => {
+                clearInterval(moveInterval);
+            });
+
+            canvas.addEventListener('click', e => {
+                if (editingMode) {
+                    toggleCell(e.offsetX, e.offsetY);
+                }
+            });
+
+            generateRandomPattern();
+            startGame();  // Démarrer immédiatement après l'initialisation
+        }
+        // Démarrer le jeu en boucle
+        function startGame() {
+            if (running) {
+                // Si le jeu est en cours d'exécution, on commence une boucle à la vitesse actuelle
+                timer = setInterval(() => {
+                    nextGeneration();
+                }, 1000 / speed);  // Le délai dépend de la vitesse choisie
+            }
+        }
+
+        // Mettre à jour la vitesse du jeu
+        function updateSpeed(newSpeed) {
+            speed = Math.max(1, Math.min(20, newSpeed));  // La vitesse reste entre 1 et 20
+            document.getElementById('speedDisplay').textContent = `Vitesse: ${speed}`;
+            clearInterval(timer);  // Arrêter le timer actuel
+            startGame();  // Relancer le jeu avec la nouvelle vitesse
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
